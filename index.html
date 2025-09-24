@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مصاريفي</title>
+<style>
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f0f4f8; direction:rtl; }
+.container { max-width:700px; margin:2rem auto; background:white; padding:1.5rem; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,0.1);}
+h1 { text-align:center; color:#4CAF50; }
+.day-input { display:flex; justify-content:space-between; margin:0.5rem 0; align-items:center; }
+input { width:100px; padding:0.3rem; border-radius:5px; border:1px solid #ccc; text-align:center; }
+.totals { margin-bottom:1rem; font-size:1.1rem; }
+#totalBalance { color: #007BFF; font-weight:bold; }
+#surplus { font-weight:bold; }
+button { margin-bottom:10px; padding:0.5rem 1rem; background:#4CAF50; color:white; border:none; border-radius:5px; cursor:pointer; }
+button:hover { background:#45a049; }
+</style>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+  // ======== ضع هنا بيانات مشروعك من Firebase ========
+const firebaseConfig = {
+    apiKey: "AIzaSyDWkrV72p1WRSEPuq_aXx8jtwbm7GlkBYQ",
+    authDomain: "myexpensescom.firebaseapp.com",
+    databaseURL: "https://myexpensescom-default-rtdb.firebaseio.com",
+    projectId: "myexpensescom",
+    storageBucket: "myexpensescom.firebasestorage.app",
+    messagingSenderId: "99361959418",
+    appId: "1:99361959418:web:2bf1b4106ef06116334843"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+</script>
+
+</head>
+<body>
+<div class="container">
+    <h1>مصاريف الشهر</h1>
+    
+    <!-- المجموع الأول والثاني وزر الحفظ فوق -->
+    <div class="totals">
+        <p>المجموع الأول (رصيدك الحالي): <span id="totalBalance">900</span> ريال</p>
+        <p>المجموع الثاني (الفائض/العجز): <span id="surplus">0</span> ريال</p>
+        <button onclick="saveData()">حفظ البيانات</button>
+    </div>
+
+    <div id="daysContainer"></div>
+</div>
+
+<script>
+const dailyAmount = 30; // المبلغ اليومي
+let initialBalance = 900; // الرصيد الابتدائي
+const daysContainer = document.getElementById('daysContainer');
+
+// إنشاء 30 خانة للتواريخ من 27
+const startDate = new Date();
+startDate.setDate(27);
+
+for(let i=0;i<30;i++){
+    const div = document.createElement('div');
+    div.className = 'day-input';
+
+    const currentDate = new Date(startDate);
+    currentDate.setDate(startDate.getDate() + i);
+    const dayLabel = `${currentDate.getDate()}/${currentDate.getMonth()+1}`;
+
+    div.innerHTML = `<label>اليوم ${dayLabel}:</label><input type="number" min="0" value="" id="day${i+1}" oninput="calculate()">`;
+    daysContainer.appendChild(div);
+}
+
+// حساب المجموعين
+function calculate(){
+    let totalBalance = initialBalance;
+    let surplus = 0;
+
+    for(let i=1;i<=30;i++){
+        const input = document.getElementById(`day${i}`);
+        const val = input.value.trim();
+
+        if(val !== ""){
+            const spent = parseFloat(val);
+            totalBalance -= spent;
+            surplus += (dailyAmount - spent);
+        }
+    }
+
+    document.getElementById('totalBalance').innerText = totalBalance;
+    const surplusEl = document.getElementById('surplus');
+    surplusEl.innerText = surplus;
+    if(surplus > 0) surplusEl.style.color = 'green';
+    else if(surplus < 0) surplusEl.style.color = 'red';
+    else surplusEl.style.color = 'black';
+}
+
+// حفظ البيانات على Firebase
+function saveData(){
+    let data = {};
+    for(let i=1;i<=30;i++){
+        const val = document.getElementById(`day${i}`).value.trim();
+        if(val !== ""){
+            data[`day${i}`] = parseFloat(val);
+        }
+    }
+    db.ref('expenses').set(data)
+      .then(()=> alert("تم حفظ البيانات بنجاح!"))
+      .catch(err => console.error(err));
+}
+
+// استرجاع البيانات عند تحميل الصفحة
+function loadData(){
+    db.ref('expenses').once('value').then(snapshot => {
+        const data = snapshot.val();
+        if(data){
+            for(let i=1;i<=30;i++){
+                if(data[`day${i}`] !== undefined){
+                    document.getElementById(`day${i}`).value = data[`day${i}`];
+                }
+            }
+            calculate();
+        }
+    });
+}
+
+window.onload = loadData;
+
+</script>
+</body>
+</html>
